@@ -13,7 +13,7 @@ static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_battery_layer;
 
-static char s_battery_buffer[4];
+static char s_battery_buffer[5];
 
 static Layer *top_bars_layer;
 static Layer *bottom_bars_layer;
