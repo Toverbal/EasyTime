@@ -3,7 +3,7 @@
 #define MINUTE_FULL_COLOR COLOR_FALLBACK(GColorBlueMoon, GColorBlack)
 #define MINUTE_EMPTY_COLOR COLOR_FALLBACK(GColorFromRGB(160, 160, 160), GColorWhite)
 #define BATTERY_COLOR COLOR_FALLBACK(GColorFromRGB(160, 160, 160), GColorBlack)
-#define LARGE_FONT_ID RESOURCE_ID_BANGERS_FONT_58
+#define LARGE_FONT_ID RESOURCE_ID_BANGERS_FONT_58_BOLD
 #define MEDIUM_FONT_ID RESOURCE_ID_BANGERS_FONT_22
 #define SMALL_FONT_ID RESOURCE_ID_BANGERS_FONT_16
 
@@ -67,19 +67,25 @@ static void update_time() {
   // Get a tm structure
   time_t temp = time(NULL); 
   struct tm *tick_time = localtime(&temp);
+  
   current_minute = tick_time->tm_min;
+  
+  //tick_time->tm_hour = 23;
+  //tick_time->tm_min = 55;
   
   // Create a long-lived buffer
   static char buffer[] = "00:00";
-  static char dateBuffer[] = "XXX XX XXX";
+  static char dateBuffer[] = "XXX, XX XXX";
   
 /*
   int m = tick_time->tm_min + 2;
   int h = tick_time->tm_hour + (m / 60);
   m = m % 60;
 */
+
   int m = tick_time->tm_min;
   int h = tick_time->tm_hour;
+
   m = (m / 5) * 5;
 
   // Write the current hours and minutes into the buffer
@@ -90,7 +96,7 @@ static void update_time() {
     // Use 12 hour format
     snprintf(buffer, sizeof(buffer), "%02d:%02d", (h % 13) + (h / 13), m);
   }
-  strftime(dateBuffer, sizeof(dateBuffer), "%a %b %e", tick_time);
+  strftime(dateBuffer, sizeof(dateBuffer), "%a, %b %e", tick_time);
   
   // Display this time on the TextLayer
   text_layer_set_text(s_time_layer, buffer);

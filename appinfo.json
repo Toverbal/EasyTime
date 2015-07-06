@@ -3,7 +3,7 @@
   "shortName": "Easy Time",
   "longName": "Easy Time",
   "companyName": "MoCo",
-  "versionLabel": "1.0",
+  "versionLabel": "1.1",
   "sdkVersion": "3",
   "targetPlatforms": ["aplite", "basalt"],
   "watchapp": {
@@ -17,8 +17,8 @@
       {
 	"type": "font",
 	"characterRegex": "[:0-9]",
-	"name": "BANGERS_FONT_58",
-	"file": "comforta.ttf"
+	"name": "BANGERS_FONT_58_BOLD",
+	"file": "comforta_700.ttf"
       },
       {
 	"type": "font",
