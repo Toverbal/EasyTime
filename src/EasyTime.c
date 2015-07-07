@@ -3,12 +3,13 @@
 #define MINUTE_FULL_COLOR COLOR_FALLBACK(GColorBlueMoon, GColorBlack)
 #define MINUTE_EMPTY_COLOR COLOR_FALLBACK(GColorFromRGB(160, 160, 160), GColorWhite)
 #define BATTERY_COLOR COLOR_FALLBACK(GColorFromRGB(160, 160, 160), GColorBlack)
-#define LARGE_FONT_ID RESOURCE_ID_BANGERS_FONT_58_BOLD
+#define LARGE_FONT_ID RESOURCE_ID_BANGERS_FONT_57_BOLD
 #define MEDIUM_FONT_ID RESOURCE_ID_BANGERS_FONT_22
 #define SMALL_FONT_ID RESOURCE_ID_BANGERS_FONT_16
 
 static Window *s_main_window;
 
+static TextLayer *s_ampm_layer;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
 static TextLayer *s_battery_layer;
@@ -26,13 +27,16 @@ static GFont small_font;
 
 static int minuteStatusArray[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+static bool using24HourFormat = false;
+
+
 static void battery_handler(BatteryChargeState new_state) {
   snprintf(s_battery_buffer, sizeof(s_battery_buffer), "%d%%", new_state.charge_percent);
   text_layer_set_text(s_battery_layer, s_battery_buffer);  
 }
 
 
-static void draw_minute_rectangle(int minute, int isBottom, GContext* ctx) {
+static void draw_bars(int minute, int isBottom, GContext* ctx) {
   int newMinuteStatusArray[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   for(int i = 1; i < 10; i++) {
     newMinuteStatusArray[i - 1] = minute % 10 >= i ? 1 : 0;
@@ -55,27 +59,28 @@ static void draw_minute_rectangle(int minute, int isBottom, GContext* ctx) {
 
 void top_bars_update_callback(Layer *me, GContext* ctx) {
   (void)me;
-  draw_minute_rectangle(current_minute, 0, ctx);
+  draw_bars(current_minute, 0, ctx);
 }
 
 void bottom_bars_update_callback(Layer *me, GContext* ctx) {
   (void)me;
-  draw_minute_rectangle(current_minute, 1, ctx);
+  draw_bars(current_minute, 1, ctx);
 }
 
 static void update_time() {
   // Get a tm structure
   time_t temp = time(NULL); 
   struct tm *tick_time = localtime(&temp);
+    
+  //  tick_time->tm_hour = 23;
+  // tick_time->tm_min = 17;
   
   current_minute = tick_time->tm_min;
-  
-  //tick_time->tm_hour = 23;
-  //tick_time->tm_min = 55;
-  
+
   // Create a long-lived buffer
   static char buffer[] = "00:00";
   static char dateBuffer[] = "XXX, XX XXX";
+  static char amPmBuffer[] = "XX";
   
 /*
   int m = tick_time->tm_min + 2;
@@ -89,17 +94,22 @@ static void update_time() {
   m = (m / 5) * 5;
 
   // Write the current hours and minutes into the buffer
-  if(clock_is_24h_style() == true) {
+  if(using24HourFormat == true) {
     // Use 24 hour format
     snprintf(buffer, sizeof(buffer), "%02d:%02d", h, m);
   } else {
     // Use 12 hour format
-    snprintf(buffer, sizeof(buffer), "%02d:%02d", (h % 13) + (h / 13), m);
+    snprintf(buffer, sizeof(buffer), "%d:%02d", (h % 13) + (h / 13), m);
+
   }
   strftime(dateBuffer, sizeof(dateBuffer), "%a, %b %e", tick_time);
   
   // Display this time on the TextLayer
   text_layer_set_text(s_time_layer, buffer);
+  if (!using24HourFormat) {
+    snprintf(amPmBuffer, 3, h < 12 ? "AM" : "PM");
+    text_layer_set_text(s_ampm_layer, amPmBuffer);
+  }
   text_layer_set_text(s_date_layer, dateBuffer);
   
 }
@@ -109,6 +119,8 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void main_window_load(Window *window) {
+  using24HourFormat = clock_is_24h_style();
+  
   large_font = fonts_load_custom_font(resource_get_handle(LARGE_FONT_ID));
   medium_font = fonts_load_custom_font(resource_get_handle(MEDIUM_FONT_ID));
   small_font = fonts_load_custom_font(resource_get_handle(SMALL_FONT_ID));
@@ -118,33 +130,39 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_time_layer, GColorClear);
   text_layer_set_text_color(s_time_layer, MINUTE_FULL_COLOR);
   text_layer_set_text(s_time_layer, "00:00");
+  text_layer_set_font(s_time_layer, large_font);
+  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
+
+  // Create AM/PM TextLayer
+  s_ampm_layer = text_layer_create(GRect(100, 22, 40, 22));
+  text_layer_set_background_color(s_ampm_layer, GColorClear);
+  text_layer_set_text_color(s_ampm_layer, BATTERY_COLOR);
+  text_layer_set_font(s_ampm_layer, medium_font);
+  text_layer_set_text(s_ampm_layer, "AM");
+  text_layer_set_text_alignment(s_ampm_layer, GTextAlignmentRight);
 
   // Create date TextLayer
-  s_date_layer = text_layer_create(GRect(0, 105, 144, 22));
+  s_date_layer = text_layer_create(GRect(0, 105, 144, 26));
   text_layer_set_background_color(s_date_layer, GColorClear);
   text_layer_set_text_color(s_date_layer, MINUTE_FULL_COLOR);
   text_layer_set_text(s_date_layer, "");
+  text_layer_set_font(s_date_layer, medium_font);
+  text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
 
   // Create battery TextLayer
   s_battery_layer = text_layer_create(GRect(4, 22, 140, 16));
   text_layer_set_background_color(s_battery_layer, GColorClear);
   text_layer_set_text_color(s_battery_layer, BATTERY_COLOR);
-  battery_handler(battery_state_service_peek());
-
-  // Improve the layout to be more like a watchface
-  text_layer_set_font(s_time_layer, large_font);
-  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
-
-  text_layer_set_font(s_date_layer, medium_font);
-  text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
-
   text_layer_set_font(s_battery_layer, small_font);
   text_layer_set_text_alignment(s_battery_layer, GTextAlignmentLeft);
+  battery_handler(battery_state_service_peek());
 
   // Add it as a child layer to the Window's root layer
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_date_layer));
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_battery_layer));
+  if (!using24HourFormat)
+    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_ampm_layer));
 
   top_bars_layer = layer_create(GRect(0, 2, 144, 12));
   layer_set_update_proc(top_bars_layer, top_bars_update_callback);
@@ -162,6 +180,7 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_battery_layer);
+  text_layer_destroy(s_ampm_layer);
   
   layer_destroy(top_bars_layer);
   layer_destroy(bottom_bars_layer);
